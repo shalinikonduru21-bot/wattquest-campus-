@@ -18,7 +18,7 @@ export const DEPT_ICONS: Record<string, string> = {
 };
 
 export const INITIAL_STATE: AppState = {
-  college: "Sri Venkateswara Engineering College",
+  college: "PEC",
   currentUser: { name: "", dept: "", role: "" },
   departments: {
     CSE:  { kwh: 0, lastMonth: 0, xp: 0, level: 1, streak: 0 },

@@ -1,13 +1,700 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>My Google AI Studio App</title>
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
-  </body>
-</html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>WattQuest | Campus Grid Control</title>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;700;900&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --bg: #020617;
+            --surface: rgba(15, 23, 42, 0.4);
+            --border: rgba(255, 255, 255, 0.06);
+            --neon-cyan: #00E5FF;
+            --neon-green: #00FF9C;
+            --neon-amber: #FFB700;
+            --neon-red: #FF4D4D;
+            --text-primary: #FFFFFF;
+            --text-secondary: #94A3B8;
+            --glass-blur: blur(20px);
+            --glow-cyan: 0 0 20px rgba(0, 229, 255, 0.3);
+            --glow-green: 0 0 20px rgba(0, 255, 156, 0.3);
+        }
 
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            background-color: var(--bg);
+            color: var(--text-primary);
+            font-family: 'Rajdhani', sans-serif;
+            overflow: hidden;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* --- Background / Grid --- */
+        .grid-bg {
+            position: fixed;
+            inset: 0;
+            background-image: 
+                linear-gradient(rgba(0, 229, 255, 0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0, 229, 255, 0.03) 1px, transparent 1px);
+            background-size: 50px 50px;
+            pointer-events: none;
+            z-index: -1;
+        }
+        .grid-bg::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: radial-gradient(circle at 50% 50%, transparent 0%, var(--bg) 85%);
+        }
+
+        .scan-line {
+            position: fixed;
+            top: -100px;
+            left: 0;
+            width: 100%;
+            height: 100px;
+            background: linear-gradient(to bottom, transparent, rgba(0, 229, 255, 0.05), transparent);
+            animation: scan 8s linear infinite;
+            z-index: -1;
+        }
+        @keyframes scan {
+            from { transform: translateY(-100vh); }
+            to { transform: translateY(200vh); }
+        }
+
+        /* --- Layout --- */
+        .app-shell {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            width: 100%;
+            max-width: 600px;
+            margin: 0 auto;
+            position: relative;
+            padding: 24px 20px 100px;
+            overflow-y: auto;
+            scrollbar-width: none;
+        }
+        .app-shell::-webkit-scrollbar { display: none; }
+
+        .page {
+            display: none;
+            animation: fadeIn 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .page.active { display: block; }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: scale(0.98) translateY(10px); }
+            to { opacity: 1; transform: scale(1) translateY(0); }
+        }
+
+        /* --- Global Components --- */
+        .orbitron { font-family: 'Orbitron', sans-serif; }
+
+        .card {
+            background: var(--surface);
+            backdrop-filter: var(--glass-blur);
+            border: 1px solid var(--border);
+            border-radius: 28px;
+            padding: 24px;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+        }
+        .card:hover {
+            transform: translateY(-4px) scale(1.01);
+            border-color: rgba(0, 229, 255, 0.3);
+            box-shadow: 0 12px 30px rgba(0, 0, 0, 0.4), 0 0 15px rgba(0, 229, 255, 0.1);
+        }
+
+        .card-title {
+            font-size: 11px;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            font-weight: 700;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .card-title::before {
+            content: '';
+            width: 4px; height: 4px;
+            background: var(--neon-cyan);
+            border-radius: 50%;
+            box-shadow: 0 0 8px var(--neon-cyan);
+        }
+
+        /* --- Dashboard Specific --- */
+        .main-card {
+            text-align: center;
+            padding: 40px 24px;
+            margin-bottom: 24px;
+            border: 1px solid rgba(0, 229, 255, 0.15);
+            background: radial-gradient(circle at top right, rgba(0, 229, 255, 0.05), transparent);
+            position: relative;
+        }
+
+        .main-value {
+            font-size: 72px;
+            font-weight: 900;
+            color: var(--neon-cyan);
+            text-shadow: var(--glow-cyan);
+            margin: 10px 0;
+            line-height: 1;
+            animation: text-pulse 2s ease-in-out infinite alternate;
+        }
+
+        @keyframes text-pulse {
+            from { text-shadow: 0 0 10px rgba(0, 229, 255, 0.4), 0 0 20px rgba(0, 229, 255, 0.2); }
+            to { text-shadow: 0 0 20px rgba(0, 229, 255, 0.8), 0 0 40px rgba(0, 229, 255, 0.4); }
+        }
+
+        .main-subtitle {
+            font-size: 14px;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 3px;
+        }
+
+        .pulse-ring {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 100%;
+            height: 100%;
+            border: 2px solid var(--neon-cyan);
+            border-radius: 28px;
+            opacity: 0;
+            animation: pulse-ring 3s cubic-bezier(0.24, 0, 0.38, 1) infinite;
+            pointer-events: none;
+        }
+
+        @keyframes pulse-ring {
+            0% { transform: translate(-50%, -50%) scale(1); opacity: 0.5; }
+            80%, 100% { transform: translate(-50%, -50%) scale(1.1); opacity: 0; }
+        }
+
+        .dept-tabs {
+            display: flex;
+            background: rgba(255, 255, 255, 0.03);
+            padding: 4px;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            gap: 4px;
+            overflow-x: auto;
+            scrollbar-width: none;
+            -ms-overflow-style: none;
+            width: 100%;
+        }
+        .dept-tabs::-webkit-scrollbar { display: none; }
+        .dept-tab {
+            padding: 8px 16px;
+            flex-shrink: 0;
+            cursor: pointer;
+            font-size: 11px;
+            font-weight: 700;
+            border-radius: 8px;
+            color: var(--text-secondary);
+            transition: 0.3s;
+            text-transform: uppercase;
+            font-family: 'Orbitron', sans-serif;
+            white-space: nowrap;
+        }
+        .dept-tab.active {
+            background: var(--neon-cyan);
+            color: #000;
+            box-shadow: 0 0 15px rgba(0, 229, 255, 0.4);
+        }
+
+        .stat-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        .sub-value {
+            font-size: 28px;
+            font-weight: 700;
+            color: #fff;
+            margin: 4px 0;
+        }
+        .delta {
+            font-size: 14px;
+            font-weight: 700;
+            color: var(--neon-green);
+            background: rgba(0, 255, 156, 0.1);
+            padding: 2px 8px;
+            border-radius: 20px;
+            display: inline-block;
+            margin-top: 4px;
+        }
+
+        .savings-card { border-color: var(--neon-amber); }
+        .savings-value { color: var(--neon-amber); text-shadow: 0 0 10px rgba(255, 183, 0, 0.2); }
+
+        /* --- Bottom Nav --- */
+        .bottom-nav {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: calc(100% - 40px);
+            max-width: 500px;
+            background: rgba(15, 23, 42, 0.85);
+            backdrop-filter: blur(25px);
+            border: 1px solid var(--border);
+            border-radius: 24px;
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 20px;
+            z-index: 1000;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.6);
+        }
+        .nav-link {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-size: 10px;
+            font-weight: 700;
+            text-transform: uppercase;
+            transition: 0.3s;
+            cursor: pointer;
+        }
+        .nav-link:hover { color: #fff; }
+        .nav-link.active { color: var(--neon-cyan); }
+        .nav-icon {
+            font-size: 20px;
+            transition: 0.3s;
+        }
+        .active .nav-icon { transform: translateY(-4px); filter: drop-shadow(var(--glow-cyan)); }
+
+        /* --- Admin / Sync Screen --- */
+        .sync-form {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        .input-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .input-group label {
+            font-size: 11px;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        input, select {
+            background: rgba(255,255,255,0.03);
+            border: 1px solid var(--border);
+            padding: 16px;
+            border-radius: 16px;
+            color: #fff;
+            font-family: inherit;
+            font-size: 16px;
+            outline: none;
+            transition: 0.3s;
+        }
+        input:focus { border-color: var(--neon-cyan); background: rgba(0, 229, 255, 0.05); }
+
+        .btn {
+            background: var(--neon-cyan);
+            color: #000;
+            border: none;
+            padding: 18px;
+            border-radius: 16px;
+            font-family: 'Orbitron', sans-serif;
+            font-weight: 700;
+            font-size: 14px;
+            cursor: pointer;
+            transition: 0.3s;
+            box-shadow: var(--glow-cyan);
+            text-transform: uppercase;
+        }
+        .btn:hover { transform: translateY(-2px); box-shadow: 0 0 30px rgba(0, 229, 255, 0.5); }
+
+        /* --- Leaderboard/Rank --- */
+        .rank-list { display: flex; flex-direction: column; gap: 12px; }
+        .rank-item {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            background: rgba(255,255,255,0.02);
+            padding: 16px 20px;
+            border-radius: 16px;
+            border: 1px solid var(--border);
+        }
+        .rank-pos { font-family: 'Orbitron', sans-serif; font-size: 20px; font-weight: 900; color: var(--neon-cyan); width: 30px; }
+        .rank-name { flex: 1; font-weight: 700; font-size: 16px; }
+        .rank-val { color: var(--neon-green); font-family: 'Orbitron', sans-serif; font-weight: 700; }
+
+        /* --- Charts --- */
+        .chart-container { height: 250px; margin-top: 20px; }
+
+        /* --- Number Counter Animation --- */
+        .count { display: inline-block; }
+
+    </style>
+</head>
+<body>
+
+    <div class="grid-bg"></div>
+    <div class="scan-line"></div>
+
+    <div class="app-shell" id="app">
+        
+        <!-- DASHBOARD PAGE -->
+        <section id="dashboard" class="page active">
+            <header style="margin-bottom: 24px; display: flex; justify-content: space-between; align-items: flex-end;">
+                <div>
+                    <p style="font-size: 11px; letter-spacing: 3px; color: var(--neon-cyan); font-weight: 700; margin-bottom: 4px;" class="orbitron">GRID STATUS : LINKED</p>
+                    <h1 style="font-size: 24px; font-weight: 400;" class="orbitron">DASHBOARD</h1>
+                </div>
+                <!-- Dept Switcher -->
+                <div class="dept-tabs" id="dept-tabs">
+                    <!-- Dynamic -->
+                </div>
+            </header>
+
+            <!-- Main Card -->
+            <div class="card main-card" id="main-card-glow">
+                <div class="card-title" style="justify-content: center;">Current Meter Reading</div>
+                <h2 class="main-value orbitron" id="display-curr">0</h2>
+                <div class="main-subtitle">kWh Consumed This Cycle</div>
+                <div class="pulse-ring"></div>
+            </div>
+
+            <!-- Secondary Cards Grid -->
+            <div class="stat-grid">
+                <!-- Card 1: Previous Cycle -->
+                <div class="card">
+                    <div class="card-title">Previous Cycle</div>
+                    <div class="sub-value orbitron" id="display-prev">0</div>
+                    <div class="delta" id="display-pct">+0%</div>
+                </div>
+
+                <!-- Card 2: CO2 Offset -->
+                <div class="card">
+                    <div class="card-title">CO₂ Offset</div>
+                    <div class="sub-value orbitron" style="color: var(--neon-green);" id="display-co2">0</div>
+                    <div style="font-size: 11px; color: var(--text-secondary); text-transform: uppercase;">kg prevented</div>
+                </div>
+
+                <!-- Card 3: Grid Savings -->
+                <div class="card savings-card">
+                    <div class="card-title" style="color: var(--neon-amber);">Grid Savings</div>
+                    <div class="sub-value orbitron savings-value">₹<span id="display-saved">0</span></div>
+                    <div style="font-size: 11px; color: var(--text-secondary); text-transform: uppercase;">Estimated Credit</div>
+                </div>
+
+                <!-- Card 4: Tree Yield -->
+                <div class="card">
+                    <div class="card-title">Tree Yield</div>
+                    <div class="sub-value orbitron" style="color: var(--neon-green);" id="display-trees">0</div>
+                    <div style="font-size: 11px; color: var(--text-secondary); text-transform: uppercase;">Virtual Saplings</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- RANK PAGE -->
+        <section id="rank" class="page">
+            <h1 class="orbitron" style="font-size: 24px; margin-bottom: 24px;">CAMPUS GRID RANKS</h1>
+            <div class="rank-list" id="rank-list">
+                <!-- Populated by JS -->
+            </div>
+        </section>
+
+        <!-- SYNC (ADMIN) PAGE -->
+        <section id="sync" class="page">
+            <h1 class="orbitron" style="font-size: 24px; margin-bottom: 24px;">DATA SYNC COMMAND</h1>
+            <div class="card sync-form">
+                <div class="input-group">
+                    <label>Sector ID (Department)</label>
+                    <select id="sync-dept">
+                        <option value="CSE">CSE UNIT</option>
+                        <option value="ECE">ECE UNIT</option>
+                        <option value="EEE">EEE UNIT</option>
+                        <option value="MECH">MECHANICAL UNIT</option>
+                        <option value="CIVIL">CIVIL UNIT</option>
+                        <option value="MBA">MGMT UNIT</option>
+                        <option value="AIML">AI SECTOR</option>
+                        <option value="AIDS">DATA SECTOR</option>
+                    </select>
+                </div>
+                <div class="input-group">
+                    <label>Meter Reading (kWh)</label>
+                    <input type="number" id="sync-val" placeholder="e.g. 6240">
+                </div>
+                <button class="btn" onclick="updateState()">Execute Sync</button>
+            </div>
+        </section>
+
+        <!-- DATA (ANALYTICS) PAGE -->
+        <section id="data" class="page">
+            <h1 class="orbitron" style="font-size: 24px; margin-bottom: 24px;">TELEMETRY DATA</h1>
+            <div class="card">
+                <div class="card-title">Power Distribution</div>
+                <div class="chart-container">
+                    <canvas id="usageChart"></canvas>
+                </div>
+            </div>
+        </section>
+
+        <!-- ACCOUNT PAGE -->
+        <section id="account" class="page">
+            <div class="card" style="text-align: center; padding: 40px 20px;">
+                <div style="width: 80px; height: 80px; background: rgba(0, 229, 255, 0.1); border: 1px solid var(--neon-cyan); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 20px;">
+                    <span class="orbitron" style="font-size: 32px; color: var(--neon-cyan);">A</span>
+                </div>
+                <h1 class="orbitron" style="font-size: 24px; margin-bottom: 8px;">ADMIN-PX7</h1>
+                <p style="color: var(--text-secondary); font-size: 14px; margin-bottom: 32px;">Authorized Personnel • Level 8 Grid Access</p>
+                
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                    <div class="card" style="padding: 16px; border-radius: 16px;">
+                        <div class="card-title">Global Rank</div>
+                        <div class="orbitron" style="font-size: 20px; color: var(--neon-amber);">#1</div>
+                    </div>
+                    <div class="card" style="padding: 16px; border-radius: 16px;">
+                        <div class="card-title">Eco Streak</div>
+                        <div class="orbitron" style="font-size: 20px; color: var(--neon-green);">12</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <!-- Bottom Navigation -->
+    <nav class="bottom-nav">
+        <div class="nav-link active" onclick="navigate('dashboard')">
+            <span class="nav-icon">🏠</span>
+            <span>Dashboard</span>
+        </div>
+        <div class="nav-link" onclick="navigate('rank')">
+            <span class="nav-icon">🏆</span>
+            <span>Rank</span>
+        </div>
+        <div class="nav-link" onclick="navigate('sync')">
+            <span class="nav-icon">⚡</span>
+            <span>Sync</span>
+        </div>
+        <div class="nav-link" onclick="navigate('data')">
+            <span class="nav-icon">📊</span>
+            <span>Data</span>
+        </div>
+        <div class="nav-link" onclick="navigate('account')">
+            <span class="nav-icon">👤</span>
+            <span>Account</span>
+        </div>
+    </nav>
+
+    <script>
+        // --- State Management ---
+        const DEPTS = ["CSE", "ECE", "EEE", "Mechanical", "Civil", "MBA", "AIML", "AIDS"];
+        let currentDept = "CSE";
+
+        let state = JSON.parse(localStorage.getItem('wattquest_campus_v2')) || {
+            CSE: { curr: 6450, prev: 5980, pct: 7.9, co2: 1340, savings: 8900, trees: 55 },
+            ECE: { curr: 7520, prev: 7880, pct: -4.6, co2: 1950, savings: 10400, trees: 72 },
+            EEE: { curr: 8240, prev: 7600, pct: 8.4, co2: 2200, savings: 11900, trees: 86 },
+            Mechanical: { curr: 9100, prev: 9600, pct: -5.2, co2: 2450, savings: 13200, trees: 95 },
+            Civil: { curr: 5600, prev: 5950, pct: -5.9, co2: 1280, savings: 7600, trees: 50 },
+            MBA: { curr: 4320, prev: 4050, pct: 6.7, co2: 980, savings: 6200, trees: 38 },
+            AIML: { curr: 6120, prev: 5540, pct: 10.5, co2: 1180, savings: 8100, trees: 47 },
+            AIDS: { curr: 6480, prev: 6020, pct: 7.6, co2: 1300, savings: 8700, trees: 53 }
+        };
+
+        function save() { localStorage.setItem('wattquest_campus_v2', JSON.stringify(state)); }
+
+        // --- Navigation ---
+        function navigate(pageId) {
+            document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+            document.getElementById(pageId).classList.add('active');
+            
+            document.querySelectorAll('.nav-link').forEach(l => {
+                l.classList.toggle('active', l.getAttribute('onclick').includes(pageId));
+            });
+
+            if(pageId === 'dashboard') {
+                renderDeptTabs();
+                renderDashboard();
+            }
+            if(pageId === 'rank') renderRankings();
+            if(pageId === 'data') renderChart();
+        }
+
+        // --- Dashboard Logic ---
+        function renderDeptTabs() {
+            const container = document.getElementById('dept-tabs');
+            container.innerHTML = '';
+            DEPTS.forEach(dept => {
+                const tab = document.createElement('div');
+                tab.className = `dept-tab ${dept === currentDept ? 'active' : ''}`;
+                tab.innerText = dept;
+                tab.onclick = () => {
+                    currentDept = dept;
+                    renderDeptTabs();
+                    renderDashboard();
+                };
+                container.appendChild(tab);
+            });
+        }
+
+        function renderDashboard() {
+            const data = state[currentDept];
+            const elements = {
+                curr: document.getElementById('display-curr'),
+                prev: document.getElementById('display-prev'),
+                pct: document.getElementById('display-pct'),
+                co2: document.getElementById('display-co2'),
+                saved: document.getElementById('display-saved'),
+                trees: document.getElementById('display-trees')
+            };
+
+            // Transitions for smooth switcher
+            Object.values(elements).forEach(el => {
+                el.style.opacity = '0';
+                el.style.transform = 'translateY(5px)';
+            });
+
+            setTimeout(() => {
+                animateValue(elements.curr, data.curr);
+                animateValue(elements.prev, data.prev);
+                elements.pct.innerText = (data.pct > 0 ? "+" : "") + data.pct + "%";
+                elements.pct.style.color = data.pct >= 0 ? "var(--neon-green)" : "var(--neon-red)";
+                elements.pct.style.background = data.pct >= 0 ? "rgba(0, 255, 156, 0.1)" : "rgba(255, 77, 77, 0.1)";
+                
+                animateValue(elements.co2, data.co2);
+                animateValue(elements.saved, data.savings);
+                animateValue(elements.trees, data.trees);
+
+                Object.values(elements).forEach(el => {
+                    el.style.transition = '0.4s';
+                    el.style.opacity = '1';
+                    el.style.transform = 'translateY(0)';
+                });
+            }, 100);
+        }
+
+        function animateValue(obj, target) {
+            let start = 0;
+            const duration = 800;
+            const startTime = performance.now();
+
+            function update(timestamp) {
+                const elapsed = timestamp - startTime;
+                const progress = Math.min(elapsed / duration, 1);
+                const current = Math.floor(progress * target);
+                obj.innerText = current.toLocaleString();
+
+                if (progress < 1) {
+                    requestAnimationFrame(update);
+                }
+            }
+            requestAnimationFrame(update);
+        }
+
+        // --- Page Renderers ---
+        function renderRankings() {
+            const list = document.getElementById('rank-list');
+            list.innerHTML = '';
+            
+            const sortedRank = Object.keys(state).map(id => ({ id, ...state[id] }))
+                .sort((a,b) => a.pct - b.pct);
+
+            sortedRank.forEach((dept, i) => {
+                const item = document.createElement('div');
+                item.className = 'rank-item';
+                item.innerHTML = `
+                    <div class="rank-pos">0${i+1}</div>
+                    <div class="rank-name">${dept.id} UNIT</div>
+                    <div class="rank-val" style="color: ${dept.pct >= 0 ? 'var(--neon-green)' : 'var(--neon-red)'}">${dept.pct}%</div>
+                `;
+                list.appendChild(item);
+            });
+        }
+
+        let chart;
+        function renderChart() {
+            const canvas = document.getElementById('usageChart');
+            if (!canvas) return;
+            const ctx = canvas.getContext('2d');
+            if (chart) chart.destroy();
+            
+            chart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: DEPTS,
+                    datasets: [{
+                        label: 'Current Energy (kWh)',
+                        data: DEPTS.map(d => state[d].curr),
+                        backgroundColor: 'rgba(0, 229, 255, 0.4)',
+                        borderColor: '#00E5FF',
+                        borderWidth: 1,
+                        borderRadius: 8
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#94A3B8' } },
+                        x: { grid: { display: false }, ticks: { color: '#94A3B8' } }
+                    }
+                }
+            });
+        }
+
+        function updateState() {
+            const dept = document.getElementById('sync-dept').value;
+            const val = parseInt(document.getElementById('sync-val').value);
+            if(!val) return alert("System requires valid metric input.");
+
+            const oldVal = state[dept].curr;
+            state[dept].prev = oldVal;
+            state[dept].curr = val;
+            state[dept].pct = (((val - (state[dept].prev || val)) / (state[dept].prev || 1)) * 100).toFixed(1);
+
+            save();
+            alert(`Sync successful for ${dept}. Dashboard recalibrated.`);
+            navigate('dashboard');
+        }
+
+        // Initialize
+        window.onload = () => {
+            renderDeptTabs();
+            renderDashboard();
+            
+            // Populate admin selector
+            const sel = document.getElementById('sync-dept');
+            sel.innerHTML = '';
+            DEPTS.forEach(d => {
+                const opt = document.createElement('option');
+                opt.value = d;
+                opt.innerText = d + " UNIT";
+                sel.appendChild(opt);
+            });
+        };
+
+    </script>
+</body>
+</html>

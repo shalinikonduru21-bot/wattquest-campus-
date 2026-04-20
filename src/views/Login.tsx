@@ -139,7 +139,7 @@ export const LoginView: React.FC<LoginProps> = ({ onLogin, treesPlanted }) => {
              <div className="flex-1 glass p-4 bg-cyan-500/5 border border-cyan-500/10 rounded-xl flex items-center gap-3">
                 <div className="w-10 h-10 bg-cyan-500/10 rounded-full flex items-center justify-center text-xl">🏙️</div>
                 <div>
-                   <p className="text-cyan-400 font-bold text-lg leading-none">SVEC</p>
+                   <p className="text-cyan-400 font-bold text-lg leading-none">PEC</p>
                    <p className="text-[8px] uppercase text-gray-500 font-black tracking-widest mt-1">Host Campus</p>
                 </div>
              </div>
